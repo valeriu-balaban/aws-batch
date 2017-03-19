@@ -1,0 +1,6 @@
+#! /bin/bash
+
+source config
+
+nohup sudo -u ec2-user sh -c "cd ~ && git clone https://github.com/valeriu-balaban/aws-batch.git && cd aws-batch && ./execute &"
+

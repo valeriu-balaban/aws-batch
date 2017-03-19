@@ -1,0 +1,20 @@
+#! /bin/bash
+
+PROJECT_NAME="tbi"
+STARTUP_SCRIPT=""
+PROCESSING_TIME="300"
+NUM_INSTANCES="3"
+
+IMAGE_ID="ami-1b56e30d"
+INSTANCE_TYPE="m3.medium"
+SPOT_PRICE="0.015"
+OWNER_ID="009540065019"
+ZONES="us-east-1a us-east-1b us-east-1c us-east-1d us-east-1e" 
+
+LAUNCH_CONFIG_NAME="${PROJECT_NAME}-launch-config"
+GROUP_NAME="${PROJECT_NAME}-autoscale-group"
+STOP_POLICY_NAME="${PROJECT_NAME}-stop-policy"
+TASK_QUEUE_NAME="${PROJECT_NAME}-task-queue"
+NOWORK_ALARM="${PROJECT_NAME}-no-more-work-alarm"
+INPUT_BUCKET="${PROJECT_NAME}-input-data"
+OUTPUT_BUCKET="${PROJECT_NAME}-output-data"

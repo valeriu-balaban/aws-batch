@@ -1,0 +1,55 @@
+#! /bin/bash
+
+source config
+
+# Auto scaling
+aws autoscaling create-launch-configuration \
+	--launch-configuration-name $LAUNCH_CONFIG_NAME \
+	--image-id $IMAGE_ID \
+	--instance-type $INSTANCE_TYPE \
+	--spot-price $SPOT_PRICE \
+	--user-data file://start-instance
+
+aws autoscaling create-auto-scaling-group \
+	--auto-scaling-group-name $GROUP_NAME \
+	--launch-configuration-name $LAUNCH_CONFIG_NAME \
+	--availability-zones $ZONES \
+	--max-size $NUM_INSTANCES \
+	--min-size 0 \
+	--desired-capacity $NUM_INSTANCES
+
+STOP_ARN=$(aws autoscaling put-scaling-policy \
+	--policy-name $STOP_POLICY_NAME \
+	--auto-scaling-group-name $GROUP_NAME \
+	--scaling-adjustment 0 \
+	--adjustment-type ExactCapacity | jq --raw-output '.PolicyARN')
+
+# Simple Queue for storing tasks
+TASK_QUEUE_URL=$(aws sqs create-queue \
+	--queue-name $TASK_QUEUE_NAME \
+	--attributes MessageRetentionPeriod=1200000,VisibilityTimeout=$PROCESSING_TIME | jq --raw-output '.QueueUrl')
+
+# Register processing tasks
+while read TASK; do
+
+	echo "Registering '$TASK' task ..."
+
+	aws sqs send-message \
+		--queue-url $TASK_QUEUE_URL \
+		--message-body "$TASK" > /dev/null
+
+done < batch-tasks
+
+# Cloud Watch scaling triggers
+aws cloudwatch put-metric-alarm \
+	--alarm-name $NOWORK_ALARM \
+	--metric-name ApproximateNumberOfMessagesVisible \
+	--namespace "AWS/SQS" \
+	--statistic Maximum \
+	--period $PROCESSING_TIME \
+	--threshold 0 \
+	--comparison-operator LessThanOrEqualToThreshold \
+	--dimensions Name=QueueName,Value=$TASK_QUEUE_NAME \
+	--evaluation-periods 1 \
+	--alarm-actions $STOP_ARN
+

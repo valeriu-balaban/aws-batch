@@ -1,0 +1,42 @@
+#! /bin/bash
+
+# Load config
+source config
+
+TASK_QUEUE_URL=$(aws sqs list-queues --queue-name $TASK_QUEUE_NAME | jq --raw-output '.QueueUrls[0]')
+
+while :
+do
+
+	# Receive task info
+	RECEIVED_TASK=$(aws sqs receive-message --queue-url $TASK_QUEUE_URL | jq --raw-output '.Messages[0]')
+
+	# Wait if not task is scheduled
+	if [ -z "$RECEIVED_TASK" ]
+	then
+		sleep 60
+		continue
+	fi
+
+	# Prepare data 
+	INPUT_FILE=$(echo $RECEIVED_TASK | jq --raw-output '.Body')
+	OUTPUT_FILE="te-$INPUT_FILE"
+
+	aws s3 cp s3://$INPUT_BUCKET/$INPUT_FILE .
+
+	# Precess data
+	touch $OUTPUT_FILE 
+	sleep 60
+
+	# Save results
+	aws s3 cp $OUTPUT_FILE s3://$OUTPUT_BUCKET
+
+	# Mark task complete
+	RECEIPT_HANDLE=$(echo $RECEIVED_TASK | jq --raw-output '.ReceiptHandle')
+	aws sqs delete-message --queue-url $TASK_QUEUE_URL --receipt-handle $RECEIPT_HANDLE
+
+	# Clean
+	rm $INPUT_FILE
+	rm $OUTPUT_FILE
+
+done

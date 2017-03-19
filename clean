@@ -1,0 +1,18 @@
+#! /bin/bash
+
+source config
+
+aws autoscaling delete-auto-scaling-group \
+	--force-delete \
+	--auto-scaling-group-name $GROUP_NAME
+
+aws autoscaling delete-launch-configuration \
+	--launch-configuration-name $LAUNCH_CONFIG_NAME
+
+TASK_QUEUE_URL=$(aws sqs list-queues --queue-name $TASK_QUEUE_NAME | jq --raw-output '.QueueUrls[0]')
+aws sqs delete-queue \
+	--queue-url $TASK_QUEUE_URL
+
+aws cloudwatch delete-alarms \
+	--alarm-names $NOWORK_ALARM
+
